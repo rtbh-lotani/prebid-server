@@ -2,10 +2,12 @@ package rtbhouse
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
 
+	"github.com/buger/jsonparser"
 	"github.com/prebid/openrtb/v19/openrtb2"
 	"github.com/prebid/prebid-server/adapters"
 	"github.com/prebid/prebid-server/config"
@@ -158,8 +160,6 @@ func (adapter *RTBHouseAdapter) MakeBids(
 			bid := bid // pin! -> https://github.com/kyoh86/scopelint#whats-this
 			bidType, err := getMediaTypeForBid(bid)
 
-			// for native bid responses fix Adm field
-
 			if err != nil {
 				errs = append(errs, err)
 			} else {
@@ -167,6 +167,15 @@ func (adapter *RTBHouseAdapter) MakeBids(
 					Bid:     &bid,
 					BidType: bidType,
 				}
+
+				// for native bid responses fix Adm field
+				if typedBid.BidType == openrtb_ext.BidTypeNative {
+					bid.AdM, err = getNativeAdm(bid.AdM)
+					if err != nil {
+						errs = append(errs, err)
+					}
+				}
+
 				bidderResponse.Bids = append(bidderResponse.Bids, typedBid)
 			}
 		}
@@ -187,4 +196,25 @@ func getMediaTypeForBid(bid openrtb2.Bid) (openrtb_ext.BidType, error) {
 	default:
 		return "", fmt.Errorf("unable to fetch mediaType in multi-format: %s", bid.ImpID)
 	}
+}
+
+func getNativeAdm(adm string) (string, error) {
+	var err error
+	nativeAdm := make(map[string]interface{})
+	err = json.Unmarshal([]byte(adm), &nativeAdm)
+	if err != nil {
+		return adm, errors.New("unable to unmarshal native adm")
+	}
+
+	// move bid.adm.native to bid.adm
+	if _, ok := nativeAdm["native"]; ok {
+		//using jsonparser to avoid marshaling, encode escape, etc.
+		value, _, _, err := jsonparser.Get([]byte(adm), string(openrtb_ext.BidTypeNative))
+		if err != nil {
+			return adm, errors.New("unable to get native adm")
+		}
+		adm = string(value)
+	}
+
+	return adm, nil
 }

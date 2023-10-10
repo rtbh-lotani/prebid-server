@@ -156,8 +156,19 @@ func (adapter *RTBHouseAdapter) MakeBids(
 	for _, seatBid := range openRTBBidderResponse.SeatBid {
 		for _, bid := range seatBid.Bid {
 			bid := bid // pin! -> https://github.com/kyoh86/scopelint#whats-this
-			typedBid = &adapters.TypedBid{Bid: &bid, BidType: "banner"}
-			bidderResponse.Bids = append(bidderResponse.Bids, typedBid)
+			bidType, err := getMediaTypeForBid(bid)
+
+			// for native bid responses fix Adm field
+
+			if err != nil {
+				errs = append(errs, err)
+			} else {
+				typedBid = &adapters.TypedBid{
+					Bid:     &bid,
+					BidType: bidType,
+				}
+				bidderResponse.Bids = append(bidderResponse.Bids, typedBid)
+			}
 		}
 	}
 
@@ -165,4 +176,15 @@ func (adapter *RTBHouseAdapter) MakeBids(
 
 	return bidderResponse, nil
 
+}
+
+func getMediaTypeForBid(bid openrtb2.Bid) (openrtb_ext.BidType, error) {
+	switch bid.MType {
+	case openrtb2.MarkupBanner:
+		return openrtb_ext.BidTypeBanner, nil
+	case openrtb2.MarkupNative:
+		return openrtb_ext.BidTypeNative, nil
+	default:
+		return "", fmt.Errorf("unable to fetch mediaType in multi-format: %s", bid.ImpID)
+	}
 }

@@ -51,9 +51,12 @@ func (adapter *RTBHouseAdapter) MakeRequests(
 			if err != nil {
 				return nil, []error{err}
 			}
-			if rtbhouseExt.BidFloor > 0 && len(reqCopy.Cur) > 0 {
-				bidFloorCur = reqCopy.Cur[0]
+			if rtbhouseExt.BidFloor > 0 {
 				bidFloor = rtbhouseExt.BidFloor
+				bidFloorCur = BidderCurrency
+				if len(reqCopy.Cur) > 0 {
+					bidFloorCur = reqCopy.Cur[0]
+				}
 			}
 		}
 
@@ -162,6 +165,7 @@ func (adapter *RTBHouseAdapter) MakeBids(
 
 			if err != nil {
 				errs = append(errs, err)
+				return nil, errs
 			} else {
 				typedBid = &adapters.TypedBid{
 					Bid:     &bid,
@@ -173,6 +177,7 @@ func (adapter *RTBHouseAdapter) MakeBids(
 					bid.AdM, err = getNativeAdm(bid.AdM)
 					if err != nil {
 						errs = append(errs, err)
+						return nil, errs
 					}
 				}
 
@@ -209,8 +214,8 @@ func getNativeAdm(adm string) (string, error) {
 	// move bid.adm.native to bid.adm
 	if _, ok := nativeAdm["native"]; ok {
 		//using jsonparser to avoid marshaling, encode escape, etc.
-		value, _, _, err := jsonparser.Get([]byte(adm), string(openrtb_ext.BidTypeNative))
-		if err != nil {
+		value, dataType, _, err := jsonparser.Get([]byte(adm), string(openrtb_ext.BidTypeNative))
+		if err != nil || dataType != jsonparser.Object {
 			return adm, errors.New("unable to get native adm")
 		}
 		adm = string(value)

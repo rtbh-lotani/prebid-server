@@ -15,7 +15,10 @@
             "ext": {
                 "bidder": {}
             }
-        }]
+        }],
+        "regs": {
+            "gdpr": 0
+        }
     },
 
     "httpCalls": [{
@@ -38,7 +41,10 @@
                     "ext": {
                         "bidder": {}
                     }
-                }]
+                }],
+                "regs": {
+                    "gdpr": 0
+                }
             }
         },
         "mockResponse": {
